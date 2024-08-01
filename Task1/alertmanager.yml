@@ -1,0 +1,33 @@
+# Alermanager.yml
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['Docker']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'email_notifications'
+
+receivers:
+  - name: 'email_notifications'
+    email_configs:
+      - to: ''
+        from: ''
+        smarthost: 'smtp.gmail.com:587'
+	      auth_username: ''
+        auth_password: ''
+
+
+# Alerts.yml
+groups:
+  - name: docker_containers
+    rules:
+      - alert: DockerContainerStopped
+        expr: engine_daemon_container_states_containers{state="stopped"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Docker container stopped"
+          description: "The Docker container has stopped.
