@@ -1,0 +1,62 @@
+variables:
+  IMAGE_NAME: vennilavan/gitlab
+  IMAGE_TAG: v2.0
+
+stages:
+  - install
+  - test
+  - build
+  - image_build
+  - deploy
+
+
+install:
+  image: node:14-alpine
+  stage: install
+  script:
+    - npm install
+  cache:
+    paths:
+      - node_modules/ # Cache node_modules to speed up future builds
+  artifacts:
+    paths:
+      - node_modules/ # Save node_modules for later stages
+
+test:
+  image: node:14-alpine
+  stage: test
+  before_script:
+    - npm install react-scripts --save
+  script:
+    - npm test 
+
+build:
+  image: node:14-alpine
+  stage: build
+  script:
+    - npm run build
+
+  artifacts:
+    paths:
+      - node_modules/
+
+image_build:
+  image: docker:27.3
+  stage: image_build
+  services:
+    - docker:27.3-dind
+  before_script:
+    - docker login -u $DOCKER_USER -p $DOCKER_PASS
+  script:
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+
+deploy:
+  stage: deploy
+  image: docker:27.3
+  before_script:
+    - chmod 400 $SSH_KEY
+  script:
+    - ssh -i $SSH_KEY -o StrictHostKeyChecking=no $AWS_EC2_USER@$AWS_EC2_HOST "
+      docker ps -a -q | xargs -r docker stop | xargs -r docker rm;
+      docker run -d --name demo -p 80:3000 $IMAGE_NAME:$IMAGE_TAG"
